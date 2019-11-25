@@ -12,7 +12,8 @@ class DatabaseHelper {
   static final title = 'title';
   static final description = 'description';
   static final date = 'date';
-  static final priority = 'priority';
+  static final completionDate = 'completionDate';
+  static final completionTime = 'completionTime';
 
   DatabaseHelper._instance();
 
@@ -41,7 +42,7 @@ class DatabaseHelper {
 
   Future _onCreate(Database db, int version) {
     Future result = db.execute(
-        'CREATE TABLE $tableName ($id TEXT PRIMARY KEY,$title TEXT,$description TEXT,$date TEXT,$priority TEXT)');
+        'CREATE TABLE $tableName ($id TEXT PRIMARY KEY,$title TEXT,$description TEXT,$date TEXT,$completionDate TEXT,$completionTime TEXT)');
     return result;
   }
 

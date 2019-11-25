@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:note_keeper/database.dart/databasehelper.dart';
 import 'package:note_keeper/model/note.dart';
-import 'package:note_keeper/screens/note_detail.dart';
+import 'package:note_keeper/screens/details.dart';
 import 'package:sqflite/sqflite.dart';
 
 class HomePage extends StatefulWidget {
@@ -11,43 +11,57 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Note> noteList = List<Note>();
+  int _count = 0;
   DatabaseHelper _databaseHelper = DatabaseHelper();
   bool _isLoading = true;
 
   void fetchNoteData() async {
-    Database initDB = await _databaseHelper.initializeDatabase();
-    if (initDB != null) {
-      this.noteList = await _databaseHelper.fetchNotes();
-      setState(() {
-        _isLoading = false;
+    Future<Database> initDB = _databaseHelper.initializeDatabase();
+    initDB.then((database) {
+      Future<List<Note>> notes = _databaseHelper.fetchNotes();
+      notes.then((noteList) {
+        setState(() {
+          this.noteList = noteList;
+          _count = noteList.length;
+          _isLoading = false;
+        });
       });
-    }
+    });
+  }
+
+  @override
+  void initState() {
+    fetchNoteData();
+    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    fetchNoteData();
     return Scaffold(
-      backgroundColor: Colors.purple,
+      backgroundColor: Theme.of(context).primaryColor,
       appBar: AppBar(
           elevation: 0.0,
-          backgroundColor: Colors.purple,
+          backgroundColor: Theme.of(context).primaryColor,
           title: Text('Note Keeper')),
       body: Stack(
         children: <Widget>[
           Container(
             decoration: BoxDecoration(
-                borderRadius:
-                    BorderRadius.only(topRight: Radius.circular(40.0)),
-                color: Colors.white30),
+                borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(40.0),
+                    topLeft: Radius.circular(40.0)),
+                color: Theme.of(context).backgroundColor),
           ),
           ClipRRect(
-            borderRadius: BorderRadius.only(topRight: Radius.circular(40.0)),
-            child: noteList.length == 0
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            borderRadius: BorderRadius.only(
+                topRight: Radius.circular(50.0),
+                topLeft: Radius.circular(50.0)),
+            child: noteList.length == 0 && !_isLoading
                 ? Center(
                     child: Container(
                       child: Text(
-                        'Empty List',
+                        'Empty Note',
                         style: TextStyle(
                             fontSize: 20.0, fontWeight: FontWeight.bold),
                       ),
@@ -56,101 +70,169 @@ class _HomePageState extends State<HomePage> {
                 : _isLoading
                     ? Center(
                         child: CircularProgressIndicator(
-                        semanticsLabel: 'Loding...',
-                        backgroundColor: Colors.purple,
+                        backgroundColor: Theme.of(context).primaryColor,
                       ))
                     : ListView.builder(
-                        itemCount: noteList.length,
+                        shrinkWrap: true,
+                        itemCount: _count,
                         itemBuilder: (context, int index) {
                           return Card(
-                            elevation: 20.0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: <Widget>[
-                                Container(
-                                  margin:
-                                      EdgeInsets.symmetric(horizontal: 10.0),
-                                  child: IconButton(
-                                    onPressed: () {
-                                      Navigator.of(context)
-                                          .push(MaterialPageRoute(
-                                              builder: (context) => NoteDetails(
-                                                    appBar: 'Edit Note',
-                                                    note: noteList[index],
-                                                  )));
-                                    },
-                                    icon: Icon(Icons.edit),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10.0)),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 5.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: <Widget>[
+                                  Container(
+                                    margin:
+                                        EdgeInsets.symmetric(horizontal: 10.0),
+                                    child: IconButton(
+                                      onPressed: () {
+                                        _showAlertDialog(
+                                            context,
+                                            'Edit Note',
+                                            Details(noteList[index],
+                                                'Edit Note', fetchNoteData));
+                                      },
+                                      icon: Icon(Icons.edit),
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: <Widget>[
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: <Widget>[
-                                          Text(
-                                            noteList[index].title,
-                                            style: TextStyle(
-                                                fontSize: 18.0,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 0.9),
-                                          ),
-                                          Text(noteList[index].date)
-                                        ],
-                                      ),
-                                      Text(noteList[index].description),
-                                    ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: <Widget>[
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: <Widget>[
+                                            Flexible(
+                                              child: Text(
+                                                noteList[index].title,
+                                                style: TextStyle(
+                                                    fontSize: 18.0,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.9),
+                                              ),
+                                            ),
+                                            Flexible(
+                                              child: Text(
+                                                noteList[index].completionDate +
+                                                    '/' +
+                                                    noteList[index]
+                                                        .completionTime,
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            )
+                                          ],
+                                        ),
+                                        SizedBox(height: 5.0),
+                                        Text(
+                                          noteList[index].description,
+                                          softWrap: false,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(letterSpacing: 0.9),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                Container(
-                                  margin:
-                                      EdgeInsets.symmetric(horizontal: 10.0),
-                                  child: IconButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _databaseHelper
-                                            .deleteNote(noteList[index].id);
-                                      });
-                                    },
-                                    icon: Icon(Icons.delete),
-                                  ),
-                                )
-                              ],
+                                  Container(
+                                    margin:
+                                        EdgeInsets.symmetric(horizontal: 10.0),
+                                    child: IconButton(
+                                      //delete a note
+                                      onPressed: () {
+                                        setState(() {
+                                          _showDeleteAlert(
+                                              context, noteList[index].id);
+                                        });
+                                      },
+                                      icon: Icon(Icons.delete),
+                                    ),
+                                  )
+                                ],
+                              ),
                             ),
                           );
                         },
                       ),
           ),
           Positioned(
-            right: 10.0,
-            bottom: 10.0,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => NoteDetails(
-                          appBar: 'Add Note',
-                          note: Note("", "", "", "", "High"),
-                        )));
-              },
-              child: Container(
-                padding: EdgeInsets.all(5.0),
-                decoration: BoxDecoration(
-                    color: Colors.purple,
-                    borderRadius: BorderRadiusDirectional.circular(60.0)),
-                child: Icon(
-                  Icons.add,
-                  size: 40.0,
-                ),
-              ),
-            ),
-          )
+              //Raised button to add note
+              right: 10.0,
+              bottom: 10.0,
+              child: RaisedButton(
+                color: Theme.of(context).primaryColor,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(40.0)),
+                child: Icon(Icons.add),
+                elevation: 30.0,
+                onPressed: () {
+                  _isLoading = true;
+                  _showAlertDialog(
+                      context,
+                      'Add Note',
+                      Details(Note('', '', '', '', '', ''), 'Add Note',
+                          fetchNoteData));
+                },
+              )),
         ],
       ),
     );
+  }
+
+  _showDeleteAlert(BuildContext contex, String id) {
+    showDialog(
+        context: context,
+        builder: (conntext) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0)),
+            content: Text('Are you sure?'),
+            actions: <Widget>[
+              FlatButton(
+                child: Text('Cancel'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              FlatButton(
+                child: Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onPressed: () {
+                  _databaseHelper.deleteNote(id);
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  fetchNoteData();
+                  Navigator.pop(context, true);
+                },
+              )
+            ],
+          );
+        });
+  }
+
+  _showAlertDialog(BuildContext context, String title, Details details) {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Theme.of(context).primaryColor,
+            elevation: 20.0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0)),
+            title: Text(title),
+            content: details,
+          );
+        });
   }
 }
